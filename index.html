@@ -186,7 +186,7 @@ section{
       <button id="openBtn" class="btn solid gate-swirl">拆开这封信 →</button>
     </div>
   </div>
-  <div class="gate-foot">戴上耳机，会更好 · 之后用「空格 / 右键 / 滚动」翻页</div>
+  <div class="gate-foot">戴上耳机，会更好 · 之后用「空格 / 左键点击 / 滚动」翻页</div>
 </div>
 
 <!-- ========== 封面 ========== -->
@@ -204,7 +204,7 @@ section{
       <span class="music-state" id="musicState">♪ 音乐播放中 · 乐章随倒带切换</span>
     </div>
   </div>
-  <div class="scroll-hint"><span>空格 / 右键 / 滚动 —— 翻开下一页</span><span class="chev">⌄</span></div>
+  <div class="scroll-hint"><span>空格 / 左键点击 / 滚动 —— 翻开下一页</span><span class="chev">⌄</span></div>
 </section>
 
 <!-- ========== 章节（由 JS 渲染，倒序：现在 → 相遇） ========== -->
@@ -1055,7 +1055,7 @@ const DATA = {
   /* ---------- 重看：再倒放一遍 ---------- */
   $("#replayBtn").addEventListener("click", ()=>{ crossFade(0); });
 
-  /* ---------- 页面引擎：按次翻页（空格/右键/滚动一格），约 2 秒渐变，切换期间输入锁定 ---------- */
+  /* ---------- 页面引擎：按次翻页（空格/鼠标左键/滚动一格），约 2 秒渐变，切换期间输入锁定 ---------- */
   const pageEls=Array.prototype.slice.call(document.querySelectorAll("#cover, main .chapter, #letter, #unlock, #final"));
   const N=pageEls.length;
   document.body.style.height="100vh";
@@ -1123,7 +1123,7 @@ const DATA = {
   }
   opened = !(DATA.gate.ask && !DATA.toName);   // 没设「门口提问」→ 一进来就能翻页
 
-  /* —— 触发：空格 / 右键 / 滚动一格（2 秒渐变中一律忽略） —— */
+  /* —— 触发：空格 / 鼠标左键 / 滚动一格（2 秒渐变中一律忽略） —— */
   let wheelLock=0;
   document.addEventListener("keydown",(e)=>{
     if(!opened||busy) return;
@@ -1131,7 +1131,13 @@ const DATA = {
     else if(e.code==="ArrowRight"||e.code==="ArrowDown"||e.code==="PageDown"||e.code==="Enter"){ if(e.repeat) return; go(1); }
     else if(e.code==="ArrowLeft"||e.code==="ArrowUp"||e.code==="PageUp"){ if(e.repeat) return; go(-1); }
   });
-  document.addEventListener("contextmenu",(e)=>{ if(!opened||busy) return; e.preventDefault(); go(1); });
+  document.addEventListener("pointerdown",(e)=>{
+    if(!opened||busy) return;
+    if(e.pointerType!=="mouse" || e.button!==0) return;   // 只要鼠标左键（触摸走滑动、右键恢复默认菜单）
+    const t=e.target;
+    if(t && t.closest && t.closest("button, a, #dots, #heartCore, .heart-wrap, .replay")) return;   // 别抢按钮/链接/红心的操作
+    go(1);                                                 // 左键点空白 = 下一页
+  });
   window.addEventListener("wheel",(e)=>{
     if(!opened||busy) return;
     e.preventDefault();
