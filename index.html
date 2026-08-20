@@ -17,6 +17,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
+html,body{height:100%;overflow:hidden;}
 body{
   background:var(--bg);color:var(--ink);overflow-x:hidden;
   font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",sans-serif;
@@ -63,7 +64,7 @@ section{
 
 /* ---------- 封面 ---------- */
 #cover{justify-content:center;text-align:center;}
-.cover-inner{position:relative;z-index:3;padding:0 24px;}
+.cover-inner{position:relative;z-index:3;padding:0 24px 80px;}
 .to-line{letter-spacing:.65em;color:var(--gold);font-size:clamp(13px,3vw,17px);text-indent:.65em;opacity:.9;}
 .big-title{
   font-size:clamp(42px,10vw,100px);font-weight:600;margin:26px 10px 10px;letter-spacing:.08em;
@@ -185,7 +186,7 @@ section{
       <button id="openBtn" class="btn solid gate-swirl">拆开这封信 →</button>
     </div>
   </div>
-  <div class="gate-foot">戴上耳机，会更好。</div>
+  <div class="gate-foot">戴上耳机，会更好 · 之后用「空格 / 右键 / 滚动」翻页</div>
 </div>
 
 <!-- ========== 封面 ========== -->
@@ -203,7 +204,7 @@ section{
       <span class="music-state" id="musicState">♪ 音乐播放中 · 乐章随倒带切换</span>
     </div>
   </div>
-  <div class="scroll-hint"><span>向上滑动 · 倒着走回相遇那天</span><span class="chev">⌄</span></div>
+  <div class="scroll-hint"><span>空格 / 右键 / 滚动 —— 翻开下一页</span><span class="chev">⌄</span></div>
 </section>
 
 <!-- ========== 章节（由 JS 渲染，倒序：现在 → 相遇） ========== -->
@@ -303,6 +304,7 @@ const DATA = {
 (function(){
   "use strict";
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let opened=false, cur=0, busy=false;   // 翻页状态：opened=已拆信可翻页；busy=2 秒渐变中（输入锁定）
 
   /* ---------- 工具 ---------- */
   const $ = (s, p) => (p||document).querySelector(s);
@@ -328,7 +330,6 @@ const DATA = {
   function unlockTheLetter(){
     if(gateEl._done) return; gateEl._done=true;
     NAME = (nameInput.value||"").trim() || "你";
-    document.body.style.overflow="";
     gateEl.classList.add("done");
     const gcv=document.querySelector("#gate canvas.scene-bg");
     if(gcv&&gcv._scene) gcv._scene.setActive(false);   // 门口打开后停下其背景
@@ -336,7 +337,7 @@ const DATA = {
     applyName();                 // 把名字写进所有文案
     if(!music.on) toggleMusic(); // 点击拆信 = 手势，正好起乐
     $("#movement").classList.add("on");
-    if(!reduce) window.scrollTo({top:0,behavior:"instant"});
+    opened=true; paint(0);       // 可以开始翻页了
   }
   const useName = (DATA.gate.ask && !DATA.toName);
   if(useName){
@@ -481,14 +482,11 @@ const DATA = {
   }
   $("#musicBtn").addEventListener("click", toggleMusic);
 
-  /* ---------- 翻页：开始按钮 ---------- */
+  /* ---------- 翻页：开始按钮（拆信后点「开始」＝翻到第 2 页） ---------- */
   $("#startBtn").addEventListener("click", ()=>{
-    scrollTo(window.innerHeight||800, 1000);   // 跳到第 1 章（第 2 页）
+    if(!music.on) toggleMusic();   // 固定名字模式点击开始也算手势，正好起乐
+    go(1);
   });
-  function scrollTo(y,dur){
-    const s=performance.now(), y0=window.scrollY;
-    (function f(t){ const k=Math.min(1,(t-s)/dur); const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2; window.scrollTo(0,lerp(y0,y,e)); if(k<1) requestAnimationFrame(f); })(s);
-  }
 
   /* ---------- 千纸鹤代笔（结尾） ---------- */
   let craneStarted=false;
@@ -1044,53 +1042,101 @@ const DATA = {
   $("#signature").addEventListener("click", celebrate);
 
   /* ---------- 重看：再倒放一遍 ---------- */
-  $("#replayBtn").addEventListener("click", ()=>{ window.scrollTo({top:0,behavior:"smooth"}); });
+  $("#replayBtn").addEventListener("click", ()=>{ crossFade(0); });
 
-  /* ---------- 页面引擎：固定整页 + 滚动时淡出渐变为下一页（十字溶解） ---------- */
+  /* ---------- 页面引擎：按次翻页（空格/右键/滚动一格），约 2 秒渐变，切换期间输入锁定 ---------- */
   const pageEls=Array.prototype.slice.call(document.querySelectorAll("#cover, main .chapter, #letter, #unlock, #final"));
   const N=pageEls.length;
-  document.body.style.height=(N*100)+"vh";
+  document.body.style.height="100vh";
+  document.body.style.overflow="hidden";
   const pageScenes=pageEls.map(el=>{ const cv=el.querySelector("canvas.scene-bg"); return cv&&cv._scene?cv._scene:null; });
   const dotLinks=Array.prototype.slice.call($("#dots").children||[]);
+  const easeInOut=t=> t<.5?4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
   function zoneFor(id){
     if(id==="letter"||id==="unlock"||id==="final"||id==="ch-05") return "soft";
     if(id==="ch-03"||id==="ch-04") return "move";
     return "now";
   }
-  function renderPages(){
-    const vh=window.innerHeight||1;
-    let raw=window.scrollY/vh;
-    const i=Math.min(N-1,Math.max(0,Math.floor(raw)));
-    let b=raw-i; if(b<0)b=0; if(b>1)b=1;
+  function paint(i){
     pageEls.forEach((el,k)=>{
-      let o;
-      if(k===i) o=1-b;        // 当前页淡出
-      else if(k===i+1) o=b;   // 下一页淡入
-      else o=0;
-      el.style.opacity=o;
-      el.style.visibility=(o>0)?"visible":"hidden";
-      el.style.pointerEvents=(k===i||k===i+1)?"auto":"none";
-      el.style.zIndex=(k===i||k===i+1)?10:1;
+      const on=(k===i);
+      el.style.opacity=on?1:0;
+      el.style.visibility=on?"visible":"hidden";
+      el.style.pointerEvents=on?"auto":"none";
+      el.style.zIndex=on?10:1;
     });
-    pageScenes.forEach((s,k)=>{ if(s) s.setActive(k===i||k===i+1); });
+    pageScenes.forEach((s,k)=>{ if(s) s.setActive(k===i); });
     dotLinks.forEach((a,k)=>a.classList.toggle("on", k===i));
     setZone(zoneFor(pageEls[i].id));
     if(pageEls[i].id==="letter") typeLetter();
     if(pageEls[i].id==="final") startCrane();
-    window.__page={i,b,N};
+    window.__page={i,cur,N};
   }
-  let settleT=null;
-  addEventListener("scroll",()=>{
-    renderPages();
-    if(settleT) clearTimeout(settleT);
-    settleT=setTimeout(()=>{
-      const vh=window.innerHeight||1, raw=window.scrollY/vh, i=Math.round(raw);
-      if(Math.abs(raw-i)>0.03) window.scrollTo({top:i*vh, behavior:"smooth"});
-    },450);
+  /* 2 秒渐变：当前页淡出、下一页淡入；期间所有输入锁定（busy） */
+  function crossFade(to){
+    if(busy || to<0 || to>=N || to===cur) return;
+    busy=true;
+    const from=cur;
+    pageEls[from].style.zIndex=11;          // 先出页在上，淡出以露出下一页
+    pageEls[to].style.zIndex=10;
+    pageEls[to].style.visibility="visible";
+    pageEls[to].style.pointerEvents="auto";
+    pageEls[from].style.pointerEvents="none";
+    pageScenes[from]&&pageScenes[from].setActive(true);
+    pageScenes[to]&&pageScenes[to].setActive(true);
+    dotLinks.forEach((a,k)=>a.classList.toggle("on", k===to));
+    const t0=performance.now(), D=2100;
+    (function step(now){
+      const k=Math.min(1,(now-t0)/D);
+      const e=easeInOut(k);
+      pageEls[from].style.opacity=1-e;
+      pageEls[to].style.opacity=e;
+      if(k<1){ requestAnimationFrame(step); }
+      else {
+        pageEls[from].style.opacity=0; pageEls[from].style.visibility="hidden"; pageEls[from].style.zIndex=1; pageEls[from].style.pointerEvents="none";
+        pageEls[to].style.opacity=1; pageEls[to].style.zIndex=10; pageEls[to].style.pointerEvents="auto";
+        busy=false; cur=to;
+        pageScenes.forEach((s,k2)=>{ if(s) s.setActive(k2===cur); });
+        setZone(zoneFor(pageEls[cur].id));
+        if(pageEls[cur].id==="letter") typeLetter();
+        if(pageEls[cur].id==="final") startCrane();
+        window.__page={i:cur,cur,N};
+      }
+    })(t0);
+  }
+  function go(dir){ if(!opened||busy) return; crossFade(cur+dir); }
+  opened = !(DATA.gate.ask && !DATA.toName);   // 没设「门口提问」→ 一进来就能翻页
+
+  /* —— 触发：空格 / 右键 / 滚动一格（2 秒渐变中一律忽略） —— */
+  let wheelLock=0;
+  document.addEventListener("keydown",(e)=>{
+    if(!opened||busy) return;
+    if(e.code==="Space"){ e.preventDefault(); if(e.repeat) return; go(1); }
+    else if(e.code==="ArrowRight"||e.code==="ArrowDown"||e.code==="PageDown"||e.code==="Enter"){ if(e.repeat) return; go(1); }
+    else if(e.code==="ArrowLeft"||e.code==="ArrowUp"||e.code==="PageUp"){ if(e.repeat) return; go(-1); }
+  });
+  document.addEventListener("contextmenu",(e)=>{ if(!opened||busy) return; e.preventDefault(); go(1); });
+  window.addEventListener("wheel",(e)=>{
+    if(!opened||busy) return;
+    e.preventDefault();
+    const now=Date.now();
+    if(now<wheelLock) return;           // 一次物理滚动只翻一页
+    wheelLock=now+700;
+    go(e.deltaY>0?1:-1);
+  },{passive:false});
+  let tx=0, ty=0, tt=0;
+  document.addEventListener("touchstart",(e)=>{ if(!opened||busy) return; const t=e.changedTouches[0]; tx=t.clientX; ty=t.clientY; tt=Date.now(); },{passive:true});
+  document.addEventListener("touchend",(e)=>{
+    if(!opened||busy) return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-tx, dy=t.clientY-ty, dt=Date.now()-tt;
+    if(dt>700) return;
+    if(Math.abs(dx)>50 || Math.abs(dy)>60){
+      go(Math.abs(dx)>Math.abs(dy) ? (dx<0?1:-1) : (dy<0?1:-1));
+    }
   },{passive:true});
-  addEventListener("resize", renderPages);
-  if(!reduce) requestAnimationFrame(()=>setTimeout(renderPages,60));
-  else renderPages();
+  window.addEventListener("resize", ()=>paint(cur));
+  paint(cur);
 
   /* ---------- 调试钩子（可删除） ---------- */
   window.__t = { typeLetter: typeLetter, startHold: startHold, endHold: endHold, setProgress: setProgress, celebrate: celebrate, startCrane: startCrane, unlockTheLetter: unlockTheLetter };
