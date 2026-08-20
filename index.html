@@ -295,7 +295,7 @@ const DATA = {
     "留下来的，全是你。",
     "谢谢你，愿意来和我相遇。"
   ]},
-  unlock: { prompt:"要到最想说的那一句了。\n它只准备说给 {name} 一个人听。", tip:"请长按下面的红心 · 把它填满（约 3 秒）", holdSeconds:3 },
+  unlock: { prompt:"要到最想说的那一句了。\n它只准备说给 {name} 一个人听。", tip:"请长按下面的红心 · 把它填满（约 3 秒）\n填满后，我会为你亲手翻开最后一页", holdSeconds:3 },
   final: { title:"所以，{name}，我想对你说——", line:"我喜欢你。不是今天才喜欢，<br>是<b>一直</b>都喜欢。", signature:"—— 永远倒着爱你的我 · 七夕" },
   craneLine: "从相遇那天起，就没有停下过喜欢。"   // 千纸鹤飞过时用尾迹写下的字
 };
@@ -304,7 +304,7 @@ const DATA = {
 (function(){
   "use strict";
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let opened=false, cur=0, busy=false;   // 翻页状态：opened=已拆信可翻页；busy=2 秒渐变中（输入锁定）
+  let opened=false, cur=0, busy=false, finalUnlocked=false;   // 翻页状态：opened=已拆信可翻页；busy=2 秒渐变/特效中（输入锁定）；finalUnlocked=红心已长满、解锁最后一页
 
   /* ---------- 工具 ---------- */
   const $ = (s, p) => (p||document).querySelector(s);
@@ -948,7 +948,7 @@ const DATA = {
   document.querySelectorAll("canvas.scene-bg").forEach(cv=>new Scene(cv, cv.dataset.scene));
 
   /* ---------- 解锁：长按红心（封印解除） ---------- */
-  const hold = {active:false, val:0};
+  const hold = {active:false, val:0, completed:false};
   const ringBar=$("#ringBar"), clipRect=$("#clipRect"), stateEl=$("#unlockState");
   const C=2*Math.PI*57;
   ringBar.style.strokeDasharray=C; ringBar.style.strokeDashoffset=C;
@@ -957,7 +957,7 @@ const DATA = {
     ringBar.style.strokeDashoffset=C*(1-v);
     clipRect.setAttribute("y", 120*(1-v));
     stateEl.textContent = v<=0?"按住这里…":(v<1?Math.round(v*100)+"%" : "❤ 封印解除");
-    if(v>=1) celebrate();
+    if(v>=1 && !hold.completed){ hold.completed=true; finalHoldDone(); }
   }
   let holdTimer=null;
   function startHold(){
@@ -971,6 +971,17 @@ const DATA = {
     });
   }
   function endHold(){ hold.active=false; if(holdTimer) cancelAnimationFrame(holdTimer); }
+  /* 红心填满 → 播放满屏特效；特效放完 → 以 2 秒渐变自动翻开最后一页。
+     从「长满」到「翻页完成」全程锁输入；在此之前最后一页不可通过任何其他方式进入。 */
+  function finalHoldDone(){
+    busy=true;                          // 特效播放期间锁死所有输入
+    stateEl.textContent = "❤ 心意已送达 · 正在翻开最后一页…";
+    celebrate(()=>{
+      busy=false;                       // 效果释放完毕，交棒给交叉渐变
+      finalUnlocked=true;               // 即此解锁最后一页
+      crossFade(N-1);                   // 2 秒渐变 → 最后一页
+    });
+  }
   const hc=$("#heartCore");
   ["pointerdown"].forEach(e=>hc.addEventListener(e,startHold));
   ["pointerup","pointercancel","pointerleave"].forEach(e=>hc.addEventListener(e,endHold));
@@ -978,7 +989,7 @@ const DATA = {
 
   /* ---------- 庆祝：封印解除的满屏礼花 ---------- */
   let fxCanvas=null;
-  function celebrate(){
+  function celebrate(onDone){
     if(!fxCanvas){
       fxCanvas=document.createElement("canvas"); fxCanvas.style.cssText="position:fixed;inset:0;z-index:99;pointer-events:none;width:100%;height:100%;";
       document.body.appendChild(fxCanvas);
@@ -1028,7 +1039,7 @@ const DATA = {
       }
       c.globalCompositeOperation="source-over"; c.globalAlpha=1;
       if(now-t0<doneAt && alive>0) requestAnimationFrame(anim);
-      else c.clearRect(0,0,W,H);
+      else { c.clearRect(0,0,W,H); if(onDone) onDone(); }
     })(t0);
   }
   function drawHeart(c,x,y,r,fill){
@@ -1070,7 +1081,7 @@ const DATA = {
     setZone(zoneFor(pageEls[i].id));
     if(pageEls[i].id==="letter") typeLetter();
     if(pageEls[i].id==="final") startCrane();
-    window.__page={i,cur,N};
+    window.__page={i,cur,N,unlocked:finalUnlocked};
   }
   /* 2 秒渐变：当前页淡出、下一页淡入；期间所有输入锁定（busy） */
   function crossFade(to){
@@ -1100,11 +1111,16 @@ const DATA = {
         setZone(zoneFor(pageEls[cur].id));
         if(pageEls[cur].id==="letter") typeLetter();
         if(pageEls[cur].id==="final") startCrane();
-        window.__page={i:cur,cur,N};
+        window.__page={i:cur,cur,N,unlocked:finalUnlocked};
       }
     })(t0);
   }
-  function go(dir){ if(!opened||busy) return; crossFade(cur+dir); }
+  function go(dir){
+    if(!opened||busy) return;
+    const target=cur+dir;
+    if(target===N-1 && !finalUnlocked) return;   // 最后一页只能由「长满红心」触发进入
+    crossFade(target);
+  }
   opened = !(DATA.gate.ask && !DATA.toName);   // 没设「门口提问」→ 一进来就能翻页
 
   /* —— 触发：空格 / 右键 / 滚动一格（2 秒渐变中一律忽略） —— */
@@ -1139,7 +1155,7 @@ const DATA = {
   paint(cur);
 
   /* ---------- 调试钩子（可删除） ---------- */
-  window.__t = { typeLetter: typeLetter, startHold: startHold, endHold: endHold, setProgress: setProgress, celebrate: celebrate, startCrane: startCrane, unlockTheLetter: unlockTheLetter };
+  window.__t = { typeLetter, startHold, endHold, setProgress, celebrate, startCrane, unlockTheLetter, go, finalHoldDone };
 })();
 </script>
 </body>
