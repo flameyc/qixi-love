@@ -67,7 +67,7 @@ section{
 .cover-inner{position:relative;z-index:3;padding:0 24px 80px;}
 .to-line{letter-spacing:.65em;color:var(--gold);font-size:clamp(13px,3vw,17px);text-indent:.65em;opacity:.9;}
 .big-title{
-  font-size:clamp(42px,10vw,100px);font-weight:600;margin:26px 10px 10px;letter-spacing:.08em;
+  font-size:clamp(33px,8.6vw,100px);font-weight:600;margin:24px 6px 10px;letter-spacing:.045em;
   background:linear-gradient(180deg,#fff6e6 20%, var(--gold) 80%);
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
   text-shadow:0 0 60px rgba(243,201,139,.25);
@@ -111,7 +111,7 @@ section{
   box-shadow:0 30px 90px rgba(0,0,0,.55);
 }
 .paper h3{font-size:clamp(20px,4.6vw,28px);letter-spacing:.2em;text-align:center;color:#8a6640;margin-bottom:30px;}
-.letter-body{font-family:"Songti SC","STSong","SimSun",serif;font-size:clamp(16px,4vw,19px);line-height:2.1;letter-spacing:.05em;white-space:pre-wrap;min-height:120px;}
+.letter-body{font-family:"Songti SC","STSong","SimSun",serif;font-size:clamp(16px,4vw,19px);line-height:1.85;letter-spacing:.05em;white-space:pre-wrap;min-height:120px;}
 .caret{display:inline-block;width:2px;height:1em;background:#b2865a;vertical-align:-0.15em;margin-left:2px;animation:blink .8s steps(1) infinite;}
 .seal{
   position:absolute;left:50%;top:-26px;transform:translateX(-50%);
@@ -121,7 +121,7 @@ section{
 }
 /* ---------- 解锁 ---------- */
 #unlock{flex-direction:column;text-align:center;padding:0 24px;}
-.unlock-prompt{position:relative;z-index:3;font-size:clamp(16px,4vw,21px);line-height:2;color:#f2e9d8;letter-spacing:.08em;max-width:560px;}
+.unlock-prompt{position:relative;z-index:3;font-size:clamp(16px,4vw,21px);line-height:2;color:#f2e9d8;letter-spacing:.08em;max-width:620px;white-space:pre-line;}
 .unlock-tip{position:relative;z-index:3;color:var(--dim);font-size:13px;letter-spacing:.25em;margin-top:10px;}
 .heart-wrap{position:relative;z-index:3;margin:40px auto 10px;width:150px;height:150px;}
 .heart-wrap svg{width:100%;height:100%;}
@@ -204,7 +204,7 @@ section{
       <span class="music-state" id="musicState">♪ 音乐播放中 · 乐章随倒带切换</span>
     </div>
   </div>
-  <div class="scroll-hint"><span>空格 / 左键点击 / 滚动 —— 翻开下一页</span><span class="chev">⌄</span></div>
+  <div class="scroll-hint"><span>空格 / 左键 / 滚动 —— 下一页</span><span class="chev">⌄</span></div>
 </section>
 
 <!-- ========== 章节（由 JS 渲染，倒序：现在 → 相遇） ========== -->
@@ -275,7 +275,7 @@ window.addEventListener("unhandledrejection", function(e){ window.__errs.push("r
 const DATA = {
   gate: { ask: true, button: "拆开这封信 →" },
   toName: "",                       // 留空 = 让 TA 在门口写自己的名字；填写则跳过
-  coverSub: "戴上耳机，慢慢往上滑。\n这一页的每个字，都会轻轻念出你的名字。",
+  coverSub: "戴上耳机，把世界关小一点。\n空格 / 左键点击 / 滚动 —— 翻开下一页。",
   chapters: [
     { n:"01", title:"现在", scene:"city", daysAgo:0,
       text:["先停在这里，别急着往下。","{name}，我想把一切都倒着放给你看——","从此刻，一直退回到最开始心动的那个瞬间。"] },
@@ -410,10 +410,10 @@ const DATA = {
       const tl=setInterval(()=>{
         line.textContent+=ps[i][ci]||"";
         ci++;
-        if(ci>=ps[i].length){ clearInterval(tl); i++; setTimeout(step,320); }
-      },55);
+        if(ci>=ps[i].length){ clearInterval(tl); i++; setTimeout(step,240); }
+      },42);
     };
-    setTimeout(step,600);
+    setTimeout(step,450);
   }
 
   /* ---------- 侧边导航（只建点，激活状态由页面引擎更新） ---------- */
@@ -502,11 +502,11 @@ const DATA = {
     const fs=Math.max(30, Math.min(54, W/N*1.05))*d;        // 按宽度自适应字号
     c.font="600 "+fs+"px \"Songti SC\",STSong,serif";
     const charW=c.measureText(text).width/N;
-    const x0=(W - charW*N)/2, yLine=H*.74;
+    const x0=(W - charW*N)/2, yLine=H*.17;   // 字写在夜空顶部，避开告白与按钮
     const trail=[]; let p=0; let raf=0;
     // 千纸鹤的飞行路径（分段：入场→飞到书写线上→沿书写线飞过）
     function pos(t){
-      if(t<.2){ const k=t/.2; const x=lerp(-60*d, x0-charW*1.5, k); const y=lerp(H*.88, yLine-120*d, Math.sin(k*Math.PI/2)); return {x,y,ang:lerp(.3,-.35,k)}; }
+      if(t<.2){ const k=t/.2; const x=lerp(-60*d, x0-charW*1.5, k); const y=lerp(H*.86, yLine-46*d, Math.sin(k*Math.PI/2)); return {x,y,ang:lerp(.3,-.35,k)}; }
       const k=(t-.2)/.8; const x=x0-charW*2+k*(charW*(N+4)); const y=yLine+Math.sin(k*9)*8*d+6*d; return {x,y,ang:-.12+Math.sin(k*9)*.1};
     }
     function step(now){
@@ -864,9 +864,13 @@ const DATA = {
       const gr=c.createLinearGradient(0,0,0,h);
       gr.addColorStop(0,"#231a46"); gr.addColorStop(.5,"#5b2a52"); gr.addColorStop(.8,"#c95b48"); gr.addColorStop(1,"#f2a25c");
       c.fillStyle=gr; c.fillRect(0,0,w,h);
-      c.globalAlpha=.25; c.fillStyle="#ffdfae";
-      for(let i=0;i<4;i++){ const y=h*.25+i*34, x=Math.sin(t*.1+i)*30; c.beginPath(); c.ellipse(w*(.3+i*.16)+x,y,w*.22,w*8,0,0,TAU); c.fill(); }
       c.globalAlpha=1;
+      for(let i=0;i<4;i++){ const y=h*.25+i*34, x=Math.sin(t*.1+i)*30, cx=w*(.3+i*.16)+x, bw=w*.44, bh=Math.max(12,h*.05);
+        c.save(); c.translate(cx,y); c.scale(1,bh/bw);
+        const cg=c.createRadialGradient(0,0,0,0,0,bw/2);
+        cg.addColorStop(0,"rgba(255,223,174,.30)"); cg.addColorStop(.7,"rgba(255,223,174,.15)"); cg.addColorStop(1,"rgba(255,223,174,0)");
+        c.fillStyle=cg; c.beginPath(); c.arc(0,0,bw/2,0,TAU); c.fill(); c.restore();
+      }
       const sx=w*.5, sy=h*.86;
       const sg=c.createRadialGradient(sx,sy,0,sx,sy,h*.3);
       sg.addColorStop(0,"rgba(255,240,200,.95)"); sg.addColorStop(.3,"rgba(255,190,120,.4)"); sg.addColorStop(1,"rgba(255,190,120,0)");
@@ -880,9 +884,9 @@ const DATA = {
     drawStarry(c,w,h,t){
       g(c,w,h,["#070b22","#0d1130","#1a1033"]);
       c.save(); c.translate(w*.5,h*.5); c.rotate(.5);
-      const gr=c.createLinearGradient(-w*.6,0,w*.6,0);
-      gr.addColorStop(0,"rgba(0,0,0,0)");gr.addColorStop(.5,"rgba(200,180,255,.12)");gr.addColorStop(1,"rgba(0,0,0,0)");
-      c.fillStyle=gr; c.fillRect(-w*.6,-h*.4,w*1.2,h*.8); c.restore();
+      const rg=c.createRadialGradient(0,0,0,0,0,Math.min(w*.6,h*.42));
+      rg.addColorStop(0,"rgba(200,180,255,.14)"); rg.addColorStop(1,"rgba(0,0,0,0)");
+      c.fillStyle=rg; c.fillRect(-w*.6,-h*.42,w*1.2,h*.84); c.restore();
     }
     drawSea(c,w,h,t){
       const gr=c.createLinearGradient(0,0,0,h);
@@ -934,9 +938,14 @@ const DATA = {
         const bgr=c.createRadialGradient(x,y,0,x,y,80+((i*13)%60));
         bgr.addColorStop(0,"rgba(255,190,205,.10)"); bgr.addColorStop(1,"rgba(0,0,0,0)");
         c.fillStyle=bgr; c.beginPath(); c.arc(x,y,140,0,TAU); c.fill(); }
-      c.fillStyle="rgba(20,12,26,.55)";
-      c.fillRect(-10,h*.72,60,h);
-      c.beginPath(); c.moveTo(30,h*.72); c.quadraticCurveTo(90,h*.45,150,h*.52); c.lineTo(170,h*.9); c.lineTo(30,h*.95); c.fill();
+      // 樱花树夜影：柔和的树干 + 圆润树冠，低调不抢戏
+      c.fillStyle="rgba(20,12,26,.5)";
+      c.beginPath(); c.moveTo(-10,h*.84); c.lineTo(48,h*.72); c.lineTo(72,h); c.lineTo(-10,h); c.closePath(); c.fill();
+      [[70,h*.52,74],[136,h*.42,60],[192,h*.56,48]].forEach(([tx,ty,tr])=>{
+        const tg=c.createRadialGradient(tx,ty,0,tx,ty,tr);
+        tg.addColorStop(0,"rgba(26,15,36,.55)"); tg.addColorStop(1,"rgba(26,15,36,0)");
+        c.fillStyle=tg; c.beginPath(); c.arc(tx,ty,tr,0,TAU); c.fill();
+      });
       this.treeBlobs.forEach(tb=>{
         const tgr=c.createRadialGradient(tb.x,tb.y,0,tb.x,tb.y,tb.r);
         tgr.addColorStop(0,"rgba(255,170,190,.28)");tgr.addColorStop(1,"rgba(0,0,0,0)");c.fillStyle=tgr;
